@@ -8,7 +8,7 @@
 #define INTERVAL 25 // sampling interval (unit: ms)
 #define _DIST_MIN 100 // minimum distance to be measured (unit: mm)
 #define _DIST_MAX 300 // maximum distance to be measured (unit: mm)
-#define _DIST_MEDIAN 3 // amount of samples for median
+#define _DIST_MEDIAN 30 // amount of samples for median
 
 // global variables
 float timeout; // unit: us
@@ -54,13 +54,13 @@ void loop() {
 // get a distance reading from the USS
   dist_raw = USS_measure(PIN_TRIG,PIN_ECHO);
 
-  tem = median_list[_DIST_MEDIAN-1];
+  tem = median_list[_DIST_MEDIAN-1]; //update new sample to median_list
   for (int i = 0; i < _DIST_MEDIAN; i++){
    median_list[_DIST_MEDIAN-1-i] = median_list[_DIST_MEDIAN-2-i];
   }
   median_list[0] = dist_raw;
 
-  for (int i = 0; i < _DIST_MEDIAN; i++)
+  for (int i = 0; i < _DIST_MEDIAN; i++) //del old sample from tem_median_list(sorted)
   {
     if (tem_median_list[i] == tem){
       for (int j = 0; j < i; j++){
@@ -71,7 +71,7 @@ void loop() {
     }
   tem_median_list[0] = -1;
 
-  for (int i = 0; i < _DIST_MEDIAN; i++){
+  for (int i = 0; i < _DIST_MEDIAN; i++){ //update new sample to tem_median_list(sorted)
     if (tem_median_list[i] >= dist_raw){
       for (int j = 0; j < i-1; j++){
         tem_median_list[j] = tem_median_list[j+1];
