@@ -18,11 +18,10 @@
 #define INTERVAL 25 // sampling interval (unit: ms)
 
 //filter setting
-#define A 68 //70->100 unit: mm, dist_cali 관련 상수
-#define B 240 //250->400 unit: mm, dist_cali 관련 상수
 #define _DIST_MEDIAN 30 // 중위수필터 샘플값
 #define _DIST_ALPHA 0.5 //EMA필터
-#define KP 1.0 //P제어 비례이득
+#define KP 0.37 //P제어 비례이득
+#define KP2 0.29 //P제어 비례이득2
 
 int _dist_target = _DIST_TARGET;
 int _dist_min = _DIST_MIN;
@@ -34,8 +33,6 @@ int _duty_max = _DUTY_MAX;
 
 unsigned long last_sampling_time; // unit: ms
 
-int a = A;
-int b = B;
 float median, tem; //two variable for 중위수필터
 int median_list[_DIST_MEDIAN], tem_median_list[_DIST_MEDIAN]; //two array for 중위수필터
 float dist_ema, alpha; //two variable for ema필터
@@ -43,7 +40,8 @@ int count = 0; //cali필터 측정을 위한 변수
 float sum = 0; //cali필터 측정을 위한 변수
 
 
-float kP = KP; //P제어 비례이득
+float kP = KP; //P제어 비례이득 1
+float kP2 = KP2;
 
 Servo myservo;
 
@@ -133,7 +131,7 @@ float califiltersample(float dist){ //실제 측정을 통해 샘플값을 얻�
 //10cm->67, 15cm->108, 20->155, 25->184, 30->202, 35->221, 40->237, 최대: 246
 }
 
-float califilter(float dist){ //cali필터 보정, 실체 즉정을 통해 얻은 샘플값을 이용해 값 보정
+float califilter(float dist){ //cali필터 보정, 실제 측정을 통해 얻은 샘플값을 이용해 값 보정
   int samples[] = {67, 108, 155, 184, 202, 221, 237, 246};
   for (int i = 0; i < 7; i++){
     if (samples[i] <= dist && dist < samples[i+1]){
@@ -145,14 +143,28 @@ float califilter(float dist){ //cali필터 보정, 실체 즉정을 통해 얻�
   return dist_cali;
 }
 
+float p_move(float dist){//p제어
+  float currenterror = 255 - dist;
+  if (currenterror >= 0){//25.5cm미만
+   float servo_needmove = _duty_meu + kP*(((_duty_min - _duty_meu) / 1.0) * (currenterror / 155.0));  
+   return servo_needmove;
+  }
+  else {//25.5cm 이상
+    float servo_needmove = _duty_meu - kP2*((_duty_meu - _duty_max / 1.0 ) * (abs(currenterror) / 155.0));
+    return servo_needmove;
+  }
+}
+
   
 void loop() {
   if (millis() < last_sampling_time + INTERVAL) return;
   float raw_dist = ir_distance(); //센서에서 값을 받아옴
-  float dist_midfix = medianfilter(raw_dist); //중위수필터 보정
-  float dist_emafix = emafilter(dist_midfix); //ema필터 보정
-  //califiltersample(dist_emafix); //cali값 샘플추출
+  //float dist_midfix = medianfilter(raw_dist); //중위수필터 보정(미완성)
+  float dist_emafix = emafilter(raw_dist); //ema필터 보정
+  //califiltersample(dist_emafix); //cali값 샘플추출(완료했으므로 주석)
   float dist_cali = califilter(dist_emafix); //cali필터 보정
+
+  myservo.writeMicroseconds(p_move(dist_cali)); //p제어
   
   //Serial.print("min:0,max:500,dist:");
   //Serial.print(raw_dist);
@@ -162,5 +174,6 @@ void loop() {
   Serial.print(dist_emafix);
   Serial.print(",dist_cali:");
   Serial.println(dist_cali);
+  Serial.println(myservo.read());
   delay(20);
 }
