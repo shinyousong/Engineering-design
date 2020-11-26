@@ -42,6 +42,7 @@ float sum = 0; //cali필터 측정을 위한 변수
 
 float kP = KP; //P제어 비례이득 1
 float kP2 = KP2;
+float pterm;
 
 Servo myservo;
 
@@ -146,11 +147,13 @@ float califilter(float dist){ //cali필터 보정, 실제 측정을 통해 얻�
 float p_move(float dist){//p제어
   float currenterror = 255 - dist;
   if (currenterror >= 0){//25.5cm미만
-   float servo_needmove = _duty_meu + kP*(((_duty_min - _duty_meu) / 1.0) * (currenterror / 155.0));  
+   pterm = kP*(((_duty_min - _duty_meu) / 1.0) * (currenterror / 155.0));  
+   float servo_needmove = _duty_meu + pterm;
    return servo_needmove;
   }
   else {//25.5cm 이상
-    float servo_needmove = _duty_meu - kP2*((_duty_meu - _duty_max / 1.0 ) * (abs(currenterror) / 155.0));
+    pterm = kP2*((_duty_meu - _duty_max / 1.0 ) * (abs(currenterror) / 155.0));
+    float servo_needmove = _duty_meu - pterm;
     return servo_needmove;
   }
 }
@@ -164,16 +167,26 @@ void loop() {
   //califiltersample(dist_emafix); //cali값 샘플추출(완료했으므로 주석)
   float dist_cali = califilter(dist_emafix); //cali필터 보정
 
-  myservo.writeMicroseconds(p_move(dist_cali)); //p제어
+  float duty_curr = p_move(dist_cali);
+  myservo.writeMicroseconds(duty_curr); //p제어
   
   //Serial.print("min:0,max:500,dist:");
   //Serial.print(raw_dist);
   //Serial.print(",dist_midfix:");
   //Serial.print(dist_midfix);
-  Serial.print(",dist_emafix:");
-  Serial.print(dist_emafix);
-  Serial.print(",dist_cali:");
-  Serial.println(dist_cali);
-  Serial.println(myservo.read());
+  //Serial.print(",dist_emafix:");
+  //Serial.print(dist_emafix);
+  //Serial.print(",dist_cali:");
+  //Serial.println(dist_cali);
+  //Serial.println(myservo.read());
+  Serial.print("dist_ir:");
+  Serial.print(raw_dist);
+  Serial.print(",pterm:");
+  Serial.print(map(pterm,-1000,1000,510,610));
+  //Serial.print(",duty_target:");
+  //Serial.print(map(duty_target,1000,2000,410,510));
+  Serial.print(",duty_curr:");
+  Serial.print(map(duty_curr,1000,2000,410,510));
+  Serial.println(",Min:100,Low:200,dist_target:255,High:310,Max:410");
   delay(20);
 }
